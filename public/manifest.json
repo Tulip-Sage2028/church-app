@@ -1,0 +1,16 @@
+{
+  "name": "恩典生命团契",
+  "short_name": "恩典生命团契",
+  "description": "恩典生命团契教会App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/assets/images/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
