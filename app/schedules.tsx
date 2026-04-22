@@ -294,7 +294,8 @@ export default function Schedules({ onBack, userRole }: { onBack: () => void; us
             <Text style={{ fontSize: 12, color: "#6b7280" }}>有聚会安排</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={{ fontSize: 12, color: "#2563eb", fontWeight: "bold" }}>18</Text>
+            <Text style={{ fontSize: 12, color: "#2563eb", fontWeight: "bold" }}>{new Date().getDate()}
+            </Text>
             <Text style={{ fontSize: 12, color: "#6b7280" }}>当前日期</Text>
           </View>
         </View>

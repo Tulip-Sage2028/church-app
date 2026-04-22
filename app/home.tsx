@@ -15,7 +15,7 @@ import SundaySchool from "./sunday_school";
 
 const MENU_ITEMS = [
   { id: 1, title: "聚会日程安排", description: "查看本周及upcoming聚会", color: "#2563eb", icon: "📅" },
-  { id: 2, title: "主内活动", description: "活动签到 · 事工报名", color: "#16a34a", icon: "✅" },
+  { id: 2, title: "团契活动", description: "活动签到 · 事工报名", color: "#16a34a", icon: "✅" },
   { id: 3, title: "主日学班级签到", description: "大中小班签到签出", color: "#9333ea", icon: "👧" },
   { id: 4, title: "主日信息", description: "收听及阅读讲道信息", color: "#ea580c", icon: "📖" },
   { id: 5, title: "公告栏", description: "最新消息及通知", color: "#f59e0b", icon: "📢" },
@@ -26,7 +26,7 @@ const MENU_ITEMS = [
 ];
 
 // 访客可以看到的菜单
-const GUEST_VISIBLE = [1, 3, 4, 5, 9];
+const GUEST_VISIBLE = [1, 2, 3, 4, 5, 9];
 
 const PAGE_MAP: { [key: number]: string } = {
   1: "schedules",
@@ -149,7 +149,7 @@ export default function Home({
 
   // 页面路由
   if (currentPage === "schedules") return <Schedules onBack={() => setCurrentPage(null)} userRole={userRole} />;
-  if (currentPage === "events") return <Events onBack={() => setCurrentPage(null)} userRole={userRole} />;
+  if (currentPage === "events") return <Events onBack={() => setCurrentPage(null)} userRole={userRole} userId={userId} />;
   if (currentPage === "sunday_school") return <SundaySchool onBack={() => setCurrentPage(null)} userRole={userRole} />;
   if (currentPage === "sermons") return <Sermons onBack={() => setCurrentPage(null)} userRole={userRole} />;
   if (currentPage === "announcements") return <Announcements onBack={() => setCurrentPage(null)} userRole={userRole} />;
@@ -246,11 +246,7 @@ export default function Home({
               }}
               onPress={() => {
                 if (!isGuest) {
-                  if (item.id === 2 && !can(userRole, "view_events")) {
-                    alert("你没有权限访问此功能，请联络管理员升级账号。");
-                    return;
-                  }
-                  if (item.id === 5 && !can(userRole, "view_announcements")) {
+                 if (item.id === 5 && !can(userRole, "view_announcements")) {
                     alert("你没有权限访问此功能，请联络管理员升级账号。");
                     return;
                   }
@@ -300,7 +296,7 @@ export default function Home({
             borderRadius: 12, borderWidth: 1, borderColor: "#bfdbfe",
           }}>
             <Text style={{ color: "#1d4ed8", fontSize: 13, textAlign: "center" }}>
-              🔒 登录后可使用主内活动、每日读经、问答交流等完整功能
+              🔒 登录后可使用完整功能
             </Text>
           </View>
         )}
