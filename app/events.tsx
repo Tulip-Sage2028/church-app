@@ -399,7 +399,7 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
           <Text style={{ color: "#bbf7d0", fontSize: 14 }}>← 返回</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>主内活动</Text>
+        <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>团契活动</Text>
         <Text style={{ fontSize: 14, color: "#bbf7d0", marginTop: 4 }}>
           教会活动 · 内部事工
         </Text>
