@@ -13,13 +13,17 @@ type Student = {
   checked_out_at: string | null;
   checked_in_by: string;
   checked_out_by: string | null;
+  contact_phone: string | null;
 };
 
 export default function SundaySchool({ onBack, userRole }: { onBack: () => void; userRole: string }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
-  const [username, setUsername] = useState("");
   const [childName, setChildName] = useState("");
+  const [checkedInBy, setCheckedInBy] = useState("");
+  const [checkedOutBy, setCheckedOutBy] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [agreedToDisclaimer, setAgreedToDisclaimer] = useState(false);
   const [selectedClass, setSelectedClass] = useState("小小班");
   const [activeTab, setActiveTab] = useState<"checkin" | "checkout" | "view" | "search">("checkin");
   const [filterClass, setFilterClass] = useState("小小班");
@@ -36,17 +40,6 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   }, []);
 
   async function fetchData() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("user_id", user.id)
-        .single();
-      if (profile) setUsername(profile.username);
-    }
-
-    // 只取今天的签到记录
     const { data } = await supabase
       .from("sunday_school")
       .select("*")
@@ -64,16 +57,13 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   }
 
   async function handleCheckIn() {
-    if (!childName) {
-      alert("请输入孩子姓名");
-      return;
-    }
+    if (!childName) { alert("请输入孩子姓名"); return; }
+    if (!checkedInBy) { alert("请输入签到人姓名"); return; }
+    if (!contactPhone) { alert("请输入联系电话"); return; }
+    if (!agreedToDisclaimer) { alert("请阅读并同意免责声明"); return; }
 
     const existing = getStudentRecord(childName, selectedClass);
-    if (existing) {
-      alert(`${childName} 今天已经签到了！`);
-      return;
-    }
+    if (existing) { alert(`${childName} 今天已经签到了！`); return; }
 
     if (!confirm(`确定为 ${childName}（${selectedClass}）签到吗？`)) return;
 
@@ -84,7 +74,8 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
         class: selectedClass,
         date: today,
         checked_in_at: new Date().toISOString(),
-        checked_in_by: username,
+        checked_in_by: checkedInBy,
+        contact_phone: contactPhone,
       })
       .select()
       .single();
@@ -92,6 +83,9 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
     if (!error && data) {
       setStudents([data, ...students]);
       setChildName("");
+      setCheckedInBy("");
+      setContactPhone("");
+      setAgreedToDisclaimer(false);
       alert(`${childName} 签到成功！`);
     } else {
       alert("签到失败：" + error?.message);
@@ -99,19 +93,14 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   }
 
   async function handleCheckOut() {
-    if (!childName) {
-      alert("请输入孩子姓名");
-      return;
-    }
+    if (!childName) { alert("请输入孩子姓名"); return; }
+    if (!checkedOutBy) { alert("请输入签出人姓名"); return; }
 
     const existing = students.find(
       (s) => s.child_name === childName && s.class === selectedClass && s.date === today && !s.checked_out_at
     );
 
-    if (!existing) {
-      alert(`找不到 ${childName}（${selectedClass}）的签到记录`);
-      return;
-    }
+    if (!existing) { alert(`找不到 ${childName}（${selectedClass}）的签到记录`); return; }
 
     if (!confirm(`确定让 ${childName}（${selectedClass}）签出吗？`)) return;
 
@@ -119,7 +108,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
       .from("sunday_school")
       .update({
         checked_out_at: new Date().toISOString(),
-        checked_out_by: username,
+        checked_out_by: checkedOutBy,
       })
       .eq("child_name", childName)
       .eq("class", selectedClass)
@@ -129,11 +118,12 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
       setStudents(
         students.map((s) =>
           s.child_name === childName && s.class === selectedClass && s.date === today
-            ? { ...s, checked_out_at: new Date().toISOString(), checked_out_by: username }
+            ? { ...s, checked_out_at: new Date().toISOString(), checked_out_by: checkedOutBy }
             : s
         )
       );
       setChildName("");
+      setCheckedOutBy("");
       alert(`${childName} 签出成功！`);
     } else {
       alert("签出失败：" + error.message);
@@ -141,11 +131,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   }
 
   async function handleSearch() {
-    if (!searchName) {
-      alert("请输入孩子姓名");
-      return;
-    }
-
+    if (!searchName) { alert("请输入孩子姓名"); return; }
     setSearching(true);
 
     const threeMonthsAgo = new Date();
@@ -163,26 +149,17 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
     } else {
       alert("查询失败：" + error?.message);
     }
-
     setSearching(false);
   }
 
   function formatTime(isoStr: string) {
     const date = new Date(isoStr);
-    return date.toLocaleTimeString("zh-TW", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
   }
 
   function formatDate(dateStr: string) {
     const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("zh-TW", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    });
+    return date.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
   }
 
   const filteredStudents = students.filter((s) => s.class === filterClass);
@@ -202,9 +179,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
           <Text style={{ color: "#e9d5ff", fontSize: 14 }}>← 返回</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>
-          主日学班级签到
-        </Text>
+        <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>主日学班级签到</Text>
         <Text style={{ fontSize: 14, color: "#e9d5ff", marginTop: 4 }}>
           小小班 · 小班 · 中班 · {today}
         </Text>
@@ -221,9 +196,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
           <TouchableOpacity
             key={tab.key}
             style={{
-              flex: 1,
-              padding: 12,
-              alignItems: "center",
+              flex: 1, padding: 12, alignItems: "center",
               borderBottomWidth: 2,
               borderBottomColor: activeTab === tab.key ? "#9333ea" : "transparent",
             }}
@@ -241,10 +214,11 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
       </View>
 
       <View style={{ padding: 16 }}>
+
         {/* 签到页面 */}
         {activeTab === "checkin" && (
           <View>
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名</Text>
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
             <TextInput
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
               placeholder="输入孩子姓名"
@@ -252,8 +226,8 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               onChangeText={setChildName}
             />
 
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级</Text>
-            <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 24, backgroundColor: "white" }}>
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级 *</Text>
+            <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 16, backgroundColor: "white" }}>
               <Picker selectedValue={selectedClass} onValueChange={(value) => setSelectedClass(value)}>
                 <Picker.Item label="小小班" value="小小班" />
                 <Picker.Item label="小班" value="小班" />
@@ -261,9 +235,71 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               </Picker>
             </View>
 
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>签到人姓名 *</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
+              placeholder="输入签到人姓名"
+              value={checkedInBy}
+              onChangeText={setCheckedInBy}
+            />
+
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>联系电话 *</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
+              placeholder="输入联系电话"
+              value={contactPhone}
+              onChangeText={setContactPhone}
+              keyboardType="phone-pad"
+            />
+
+            {/* 免责声明 */}
+            <View style={{ backgroundColor: "#f5f3ff", borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "#ddd6fe" }}>
+              <Text style={{ fontSize: 14, fontWeight: "bold", color: "#7c3aed", marginBottom: 10 }}>
+                免责声明
+              </Text>
+              <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 4 }}>
+                1. 本人授权恩典生命团契主日学老师在主日学活动期间负责照顾本人的孩子。
+              </Text>
+              <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 4 }}>
+                2. 教会工作人员将尽力确保孩子安全，但对于意外事故不承担法律责任。
+              </Text>
+              <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 4 }}>
+                3. 孩子如有特殊健康状况或过敏情况，本人有责任事先告知主日学老师。
+              </Text>
+              <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 4 }}>
+                4. 本人同意教会在活动中为孩子拍摄的照片或视频可用于教会内部用途。
+              </Text>
+              <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 12 }}>
+                5. 本人确认所填写的联络资料真实有效，以便紧急情况下联络。
+              </Text>
+
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+                onPress={() => setAgreedToDisclaimer(!agreedToDisclaimer)}
+              >
+                <View style={{
+                  width: 22, height: 22, borderRadius: 4,
+                  borderWidth: 2, borderColor: agreedToDisclaimer ? "#7c3aed" : "#9ca3af",
+                  backgroundColor: agreedToDisclaimer ? "#7c3aed" : "white",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  {agreedToDisclaimer && (
+                    <Text style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>✓</Text>
+                  )}
+                </View>
+                <Text style={{ fontSize: 13, color: "#374151", flex: 1 }}>
+                  我已阅读并同意以上免责声明
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={{ backgroundColor: "#9333ea", padding: 14, borderRadius: 8, alignItems: "center" }}
+              style={{
+                backgroundColor: agreedToDisclaimer ? "#9333ea" : "#d1d5db",
+                padding: 14, borderRadius: 8, alignItems: "center",
+              }}
               onPress={handleCheckIn}
+              disabled={!agreedToDisclaimer}
             >
               <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>确认签到</Text>
             </TouchableOpacity>
@@ -273,7 +309,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
         {/* 签出页面 */}
         {activeTab === "checkout" && (
           <View>
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名</Text>
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
             <TextInput
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
               placeholder="输入孩子姓名"
@@ -281,14 +317,22 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               onChangeText={setChildName}
             />
 
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级</Text>
-            <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 24, backgroundColor: "white" }}>
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级 *</Text>
+            <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 16, backgroundColor: "white" }}>
               <Picker selectedValue={selectedClass} onValueChange={(value) => setSelectedClass(value)}>
                 <Picker.Item label="小小班" value="小小班" />
                 <Picker.Item label="小班" value="小班" />
                 <Picker.Item label="中班" value="中班" />
               </Picker>
             </View>
+
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>签出人姓名 *</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 24, backgroundColor: "white" }}
+              placeholder="输入签出人姓名"
+              value={checkedOutBy}
+              onChangeText={setCheckedOutBy}
+            />
 
             <TouchableOpacity
               style={{ backgroundColor: "#ea580c", padding: 14, borderRadius: 8, alignItems: "center" }}
@@ -302,15 +346,12 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
         {/* 今日记录 */}
         {activeTab === "view" && (
           <View>
-            {/* 班级筛选 */}
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
               {["小小班", "小班", "中班"].map((cls) => (
                 <TouchableOpacity
                   key={cls}
                   style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 20,
+                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
                     backgroundColor: filterClass === cls ? "#9333ea" : "white",
                     borderWidth: 1,
                     borderColor: filterClass === cls ? "#9333ea" : "#d1d5db",
@@ -328,7 +369,6 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               ))}
             </View>
 
-            {/* 人数统计 */}
             <View style={{ backgroundColor: "#f3e8ff", borderRadius: 8, padding: 10, marginBottom: 12 }}>
               <Text style={{ fontSize: 13, color: "#9333ea", fontWeight: "bold" }}>
                 {filterClass} 今日签到：{filteredStudents.length} 人
@@ -337,18 +377,13 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
             </View>
 
             {filteredStudents.length === 0 ? (
-              <Text style={{ color: "#6b7280", textAlign: "center", marginTop: 40 }}>
-                今天还没有签到记录
-              </Text>
+              <Text style={{ color: "#6b7280", textAlign: "center", marginTop: 40 }}>今天还没有签到记录</Text>
             ) : (
               filteredStudents.map((student) => (
                 <View
                   key={student.id}
                   style={{
-                    backgroundColor: "white",
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 10,
+                    backgroundColor: "white", borderRadius: 12, padding: 16, marginBottom: 10,
                     borderLeftWidth: 4,
                     borderLeftColor: student.checked_out_at ? "#6b7280" : "#9333ea",
                   }}
@@ -359,9 +394,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
                     </Text>
                     <View style={{
                       backgroundColor: student.class === "小小班" ? "#fef3c7" : student.class === "小班" ? "#dbeafe" : "#ede9fe",
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 12,
+                      paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12,
                     }}>
                       <Text style={{ fontSize: 12, color: "#374151" }}>{student.class}</Text>
                     </View>
@@ -370,15 +403,17 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
                   <Text style={{ fontSize: 12, color: "#16a34a", marginTop: 6 }}>
                     ✅ 签到：{formatTime(student.checked_in_at)} （{student.checked_in_by}）
                   </Text>
-
+                  {student.contact_phone ? (
+                    <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                      📞 {student.contact_phone}
+                    </Text>
+                  ) : null}
                   {student.checked_out_at ? (
                     <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
                       🚪 签出：{formatTime(student.checked_out_at)} （{student.checked_out_by}）
                     </Text>
                   ) : (
-                    <Text style={{ fontSize: 12, color: "#ea580c", marginTop: 2 }}>
-                      🟡 尚未签出
-                    </Text>
+                    <Text style={{ fontSize: 12, color: "#ea580c", marginTop: 2 }}>🟡 尚未签出</Text>
                   )}
                 </View>
               ))
@@ -417,10 +452,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
                   <View
                     key={record.id}
                     style={{
-                      backgroundColor: "white",
-                      borderRadius: 12,
-                      padding: 16,
-                      marginBottom: 10,
+                      backgroundColor: "white", borderRadius: 12, padding: 16, marginBottom: 10,
                       borderLeftWidth: 4,
                       borderLeftColor: record.checked_out_at ? "#6b7280" : "#9333ea",
                     }}
@@ -431,24 +463,25 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
                       </Text>
                       <View style={{
                         backgroundColor: record.class === "小小班" ? "#fef3c7" : record.class === "小班" ? "#dbeafe" : "#ede9fe",
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 12,
+                        paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12,
                       }}>
                         <Text style={{ fontSize: 12, color: "#374151" }}>{record.class}</Text>
                       </View>
                     </View>
                     <Text style={{ fontSize: 12, color: "#16a34a", marginTop: 6 }}>
-                      ✅ 签到：{formatTime(record.checked_in_at)}
+                      ✅ 签到：{formatTime(record.checked_in_at)} （{record.checked_in_by}）
                     </Text>
+                    {record.contact_phone ? (
+                      <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                        📞 {record.contact_phone}
+                      </Text>
+                    ) : null}
                     {record.checked_out_at ? (
                       <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                        🚪 签出：{formatTime(record.checked_out_at)}
+                        🚪 签出：{formatTime(record.checked_out_at)} （{record.checked_out_by}）
                       </Text>
                     ) : (
-                      <Text style={{ fontSize: 12, color: "#ea580c", marginTop: 2 }}>
-                        🟡 未签出
-                      </Text>
+                      <Text style={{ fontSize: 12, color: "#ea580c", marginTop: 2 }}>🟡 未签出</Text>
                     )}
                   </View>
                 ))}
