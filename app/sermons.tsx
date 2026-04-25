@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { can } from "../lib/permissions";
 import { supabase } from "../lib/supabase";
+import Bulletin from "./bulletin";
 
 type CurrentSermon = {
   id: number;
@@ -34,6 +35,7 @@ export default function Sermons({ onBack, userRole }: { onBack: () => void; user
   const [newDescription, setNewDescription] = useState("");
   const [newPdfUrl, setNewPdfUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showBulletin, setShowBulletin] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pdfFileName, setPdfFileName] = useState("");
 
@@ -186,6 +188,8 @@ export default function Sermons({ onBack, userRole }: { onBack: () => void; user
     });
   }
 
+  if (showBulletin) return <Bulletin onBack={() => setShowBulletin(false)} />;
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -243,7 +247,7 @@ export default function Sermons({ onBack, userRole }: { onBack: () => void; user
           <View>
             {/* 本周讲道 */}
             <Text style={{ fontSize: 16, fontWeight: "bold", color: "#374151", marginBottom: 12 }}>
-              本周主日信息
+              本周周报
             </Text>
 
             {currentSermon ? (
@@ -354,10 +358,21 @@ export default function Sermons({ onBack, userRole }: { onBack: () => void; user
         {/* 管理页面 */}
         {activeTab === "manage" && (
           <View>
-            {/* 更新本周讲道 */}
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#374151", marginBottom: 12 }}>
-              更新本周讲道
-            </Text>
+             {/* 生成本周周报 */}
+            <TouchableOpacity
+                style={{
+                backgroundColor: "#7c3aed",
+                padding: 14,
+                borderRadius: 8,
+                alignItems: "center",
+                marginBottom: 24,
+                }}
+                onPress={() => setShowBulletin(true)}
+             >
+                <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
+                📋 生成本周周报
+                </Text>
+            </TouchableOpacity>
 
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>标题</Text>
             <TextInput
