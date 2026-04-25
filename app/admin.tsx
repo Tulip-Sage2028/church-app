@@ -182,7 +182,7 @@ export default function Admin({ onBack, userRole }: { onBack: () => void; userRo
       {/* 顶部标题 */}
       <View style={{ backgroundColor: "#ef4444", padding: 24, paddingTop: 48 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
-          <Text style={{ color: "#fecaca", fontSize: 14 }}>← 返回</Text>
+          <Text style={{ color: "#fecaca", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>
           系统管理

@@ -212,7 +212,7 @@ export default function QA({ onBack, userRole }: { onBack: () => void; userRole:
             onPress={() => { setSelectedPost(null); setReplies([]); }}
             style={{ marginBottom: 12 }}
           >
-            <Text style={{ color: "#bfdbfe", fontSize: 14 }}>← 返回列表</Text>
+            <Text style={{ color: "#bfdbfe", fontSize: 18, fontWeight: "bold" }}>← 返回列表</Text>
           </TouchableOpacity>
           <Text style={{ fontSize: 20, fontWeight: "bold", color: "white" }}>
             {selectedPost.title}

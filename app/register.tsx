@@ -83,7 +83,7 @@ export default function Register({ onBack, onSuccess }: { onBack: () => void; on
     <ScrollView style={{ flex: 1, backgroundColor: "#f8fafc" }}>
       <View style={{ padding: 24, paddingTop: 60 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 24 }}>
-          <Text style={{ color: "#2563eb", fontSize: 14 }}>← 返回登录</Text>
+          <Text style={{ color: "#2563eb", fontSize: 18, fontWeight: "bold" }}>← 返回登录</Text>
         </TouchableOpacity>
 
         <Text style={{ fontSize: 28, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>

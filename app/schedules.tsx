@@ -182,7 +182,7 @@ export default function Schedules({ onBack, userRole }: { onBack: () => void; us
     <ScrollView style={{ flex: 1, backgroundColor: "#f8fafc" }}>
       <View style={{ backgroundColor: "#2563eb", padding: 24, paddingTop: 48 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
-          <Text style={{ color: "#bfdbfe", fontSize: 14 }}>← 返回</Text>
+          <Text style={{ color: "#bfdbfe", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>
           聚会日程安排

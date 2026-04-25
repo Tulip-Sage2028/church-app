@@ -199,7 +199,7 @@ export default function Sermons({ onBack, userRole }: { onBack: () => void; user
       {/* 顶部标题 */}
       <View style={{ backgroundColor: "#ea580c", padding: 24, paddingTop: 48 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
-          <Text style={{ color: "#fed7aa", fontSize: 14 }}>← 返回</Text>
+          <Text style={{ color: "#fed7aa", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>
           主日信息

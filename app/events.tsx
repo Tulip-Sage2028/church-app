@@ -397,7 +397,7 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
       {/* 顶部标题 */}
       <View style={{ backgroundColor: "#16a34a", padding: 24, paddingTop: 48 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
-          <Text style={{ color: "#bbf7d0", fontSize: 14 }}>← 返回</Text>
+          <Text style={{ color: "#bbf7d0", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>团契活动</Text>
         <Text style={{ fontSize: 14, color: "#bbf7d0", marginTop: 4 }}>

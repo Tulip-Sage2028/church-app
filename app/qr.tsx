@@ -9,7 +9,7 @@ export default function QR({ onBack }: { onBack: () => void }) {
       {/* 顶部 */}
       <View style={{ backgroundColor: "#2563eb", padding: 24, paddingTop: 48, flexDirection: "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={onBack}>
-          <Text style={{ color: "white", fontSize: 16 }}>← 返回</Text>
+          <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>扫码进入 App</Text>
       </View>

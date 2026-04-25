@@ -16,15 +16,40 @@ type Student = {
   contact_phone: string | null;
 };
 
-export default function SundaySchool({ onBack, userRole }: { onBack: () => void; userRole: string }) {
+type Child = {
+  id: number;
+  child_name: string;
+};
+
+export default function SundaySchool({ onBack, userRole, userId }: {
+  onBack: () => void;
+  userRole: string;
+  userId: string | null;
+}) {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 登录用户信息
+  const [username, setUsername] = useState("");
+  const [userPhone, setUserPhone] = useState("");
+
+  // 孩子列表（登录用户）
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+
+  // 签到表单
   const [childName, setChildName] = useState("");
   const [checkedInBy, setCheckedInBy] = useState("");
   const [checkedOutBy, setCheckedOutBy] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [agreedToDisclaimer, setAgreedToDisclaimer] = useState(false);
   const [selectedClass, setSelectedClass] = useState("小小班");
+
+  // 新增孩子
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [newChildName, setNewChildName] = useState("");
+  const [savingChild, setSavingChild] = useState(false);
+
   const [activeTab, setActiveTab] = useState<"checkin" | "checkout" | "view" | "search">("checkin");
   const [filterClass, setFilterClass] = useState("小小班");
 
@@ -33,6 +58,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [searching, setSearching] = useState(false);
 
+  const isGuest = userId === null;
   const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
@@ -40,14 +66,72 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
   }, []);
 
   async function fetchData() {
+    // 取今天的签到记录
     const { data } = await supabase
       .from("sunday_school")
       .select("*")
       .eq("date", today)
       .order("checked_in_at", { ascending: false });
-
     if (data) setStudents(data);
+
+    // 登录用户：取个人资料和孩子列表
+    if (!isGuest && userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username, phone")
+        .eq("user_id", userId)
+        .single();
+
+      if (profile) {
+        setUsername(profile.username || "");
+        setUserPhone(profile.phone || "");
+        setCheckedInBy(profile.username || "");
+        setCheckedOutBy(profile.username || "");
+        setContactPhone(profile.phone || "");
+      }
+
+      const { data: childrenData } = await supabase
+        .from("children")
+        .select("id, child_name")
+        .eq("user_id", userId)
+        .order("child_name", { ascending: true });
+
+      if (childrenData) setChildren(childrenData);
+    }
+
     setLoading(false);
+  }
+
+  // 选择孩子时自动带出姓名
+  function handleSelectChild(childId: number) {
+    setSelectedChildId(childId);
+    const child = children.find((c) => c.id === childId);
+    if (child) setChildName(child.child_name);
+  }
+
+  // 新增孩子到 children 表
+  async function handleAddChild() {
+    if (!newChildName.trim()) { alert("请输入孩子姓名"); return; }
+    if (!userId) return;
+
+    setSavingChild(true);
+    const { data, error } = await supabase
+      .from("children")
+      .insert({ user_id: userId, child_name: newChildName.trim() })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setChildren([...children, data]);
+      setNewChildName("");
+      setShowAddChild(false);
+      setSelectedChildId(data.id);
+      setChildName(data.child_name);
+      alert("孩子资料已保存！");
+    } else {
+      alert("保存失败：" + error?.message);
+    }
+    setSavingChild(false);
   }
 
   function getStudentRecord(name: string, cls: string) {
@@ -82,9 +166,17 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
 
     if (!error && data) {
       setStudents([data, ...students]);
-      setChildName("");
-      setCheckedInBy("");
-      setContactPhone("");
+
+      // 访客签到后重置表单
+      if (isGuest) {
+        setChildName("");
+        setCheckedInBy("");
+        setContactPhone("");
+      } else {
+        // 登录用户只重置孩子选择和免责声明
+        setSelectedChildId(null);
+        setChildName("");
+      }
       setAgreedToDisclaimer(false);
       alert(`${childName} 签到成功！`);
     } else {
@@ -122,8 +214,9 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
             : s
         )
       );
+      setSelectedChildId(null);
       setChildName("");
-      setCheckedOutBy("");
+      if (isGuest) setCheckedOutBy("");
       alert(`${childName} 签出成功！`);
     } else {
       alert("签出失败：" + error.message);
@@ -177,7 +270,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
       {/* 顶部标题 */}
       <View style={{ backgroundColor: "#9333ea", padding: 24, paddingTop: 48 }}>
         <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
-          <Text style={{ color: "#e9d5ff", fontSize: 14 }}>← 返回</Text>
+          <Text style={{ color: "#e9d5ff", fontSize: 18, fontWeight: "bold" }}>← 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: "white" }}>主日学班级签到</Text>
         <Text style={{ fontSize: 14, color: "#e9d5ff", marginTop: 4 }}>
@@ -215,17 +308,89 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
 
       <View style={{ padding: 16 }}>
 
-        {/* 签到页面 */}
+        {/* ── 签到页面 ── */}
         {activeTab === "checkin" && (
           <View>
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
-            <TextInput
-              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
-              placeholder="输入孩子姓名"
-              value={childName}
-              onChangeText={setChildName}
-            />
 
+            {/* 登录用户：孩子下拉选择 */}
+            {!isGuest && (
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, color: "#374151" }}>选择孩子 *</Text>
+                  <TouchableOpacity onPress={() => setShowAddChild(!showAddChild)}>
+                    <Text style={{ fontSize: 13, color: "#9333ea", fontWeight: "bold" }}>
+                      ＋ 新增孩子
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 新增孩子表单 */}
+                {showAddChild && (
+                  <View style={{ backgroundColor: "#f5f3ff", borderRadius: 8, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: "#ddd6fe" }}>
+                    <Text style={{ fontSize: 13, color: "#7c3aed", marginBottom: 6 }}>新增孩子姓名</Text>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <TextInput
+                        style={{ flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: "white" }}
+                        placeholder="输入孩子姓名"
+                        value={newChildName}
+                        onChangeText={setNewChildName}
+                      />
+                      <TouchableOpacity
+                        style={{ backgroundColor: "#9333ea", padding: 10, borderRadius: 8, alignItems: "center", justifyContent: "center" }}
+                        onPress={handleAddChild}
+                        disabled={savingChild}
+                      >
+                        <Text style={{ color: "white", fontWeight: "bold" }}>
+                          {savingChild ? "保存中" : "保存"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {children.length > 0 ? (
+                  <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, backgroundColor: "white" }}>
+                    <Picker
+                      selectedValue={selectedChildId ?? ""}
+                      onValueChange={(value) => {
+                        if (value === "") {
+                          setSelectedChildId(null);
+                          setChildName("");
+                        } else {
+                          handleSelectChild(Number(value));
+                        }
+                      }}
+                    >
+                      <Picker.Item label="── 请选择孩子 ──" value="" />
+                      {children.map((child) => (
+                        <Picker.Item key={child.id} label={child.child_name} value={child.id} />
+                      ))}
+                    </Picker>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: "#f3f4f6", borderRadius: 8, padding: 12 }}>
+                    <Text style={{ fontSize: 13, color: "#6b7280" }}>
+                      还没有登记孩子资料，点「新增孩子」添加
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* 访客：手动输入孩子姓名 */}
+            {isGuest && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
+                <TextInput
+                  style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: "white" }}
+                  placeholder="输入孩子姓名"
+                  value={childName}
+                  onChangeText={setChildName}
+                />
+              </View>
+            )}
+
+            {/* 班级 */}
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级 *</Text>
             <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 16, backgroundColor: "white" }}>
               <Picker selectedValue={selectedClass} onValueChange={(value) => setSelectedClass(value)}>
@@ -235,6 +400,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               </Picker>
             </View>
 
+            {/* 签到人姓名 */}
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>签到人姓名 *</Text>
             <TextInput
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
@@ -243,6 +409,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               onChangeText={setCheckedInBy}
             />
 
+            {/* 联系电话 */}
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>联系电话 *</Text>
             <TextInput
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
@@ -272,7 +439,6 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, marginBottom: 12 }}>
                 5. 本人确认所填写的联络资料真实有效，以便紧急情况下联络。
               </Text>
-
               <TouchableOpacity
                 style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
                 onPress={() => setAgreedToDisclaimer(!agreedToDisclaimer)}
@@ -306,17 +472,49 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
           </View>
         )}
 
-        {/* 签出页面 */}
+        {/* ── 签出页面 ── */}
         {activeTab === "checkout" && (
           <View>
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
-            <TextInput
-              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white" }}
-              placeholder="输入孩子姓名"
-              value={childName}
-              onChangeText={setChildName}
-            />
 
+            {/* 登录用户：孩子下拉选择 */}
+            {!isGuest && children.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>选择孩子 *</Text>
+                <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, backgroundColor: "white" }}>
+                  <Picker
+                    selectedValue={selectedChildId ?? ""}
+                    onValueChange={(value) => {
+                      if (value === "") {
+                        setSelectedChildId(null);
+                        setChildName("");
+                      } else {
+                        handleSelectChild(Number(value));
+                      }
+                    }}
+                  >
+                    <Picker.Item label="── 请选择孩子 ──" value="" />
+                    {children.map((child) => (
+                      <Picker.Item key={child.id} label={child.child_name} value={child.id} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            )}
+
+            {/* 访客或没有孩子记录：手动输入 */}
+            {(isGuest || children.length === 0) && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>孩子姓名 *</Text>
+                <TextInput
+                  style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: "white" }}
+                  placeholder="输入孩子姓名"
+                  value={childName}
+                  onChangeText={setChildName}
+                />
+              </View>
+            )}
+
+            {/* 班级 */}
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>班级 *</Text>
             <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, marginBottom: 16, backgroundColor: "white" }}>
               <Picker selectedValue={selectedClass} onValueChange={(value) => setSelectedClass(value)}>
@@ -326,6 +524,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
               </Picker>
             </View>
 
+            {/* 签出人姓名 */}
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>签出人姓名 *</Text>
             <TextInput
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 24, backgroundColor: "white" }}
@@ -343,7 +542,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
           </View>
         )}
 
-        {/* 今日记录 */}
+        {/* ── 今日记录 ── */}
         {activeTab === "view" && (
           <View>
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
@@ -399,7 +598,6 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
                       <Text style={{ fontSize: 12, color: "#374151" }}>{student.class}</Text>
                     </View>
                   </View>
-
                   <Text style={{ fontSize: 12, color: "#16a34a", marginTop: 6 }}>
                     ✅ 签到：{formatTime(student.checked_in_at)} （{student.checked_in_by}）
                   </Text>
@@ -421,7 +619,7 @@ export default function SundaySchool({ onBack, userRole }: { onBack: () => void;
           </View>
         )}
 
-        {/* 查询出勤 */}
+        {/* ── 查询出勤 ── */}
         {activeTab === "search" && (
           <View>
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>输入孩子姓名</Text>

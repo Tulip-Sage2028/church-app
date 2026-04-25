@@ -150,7 +150,7 @@ export default function Home({
   // 页面路由
   if (currentPage === "schedules") return <Schedules onBack={() => setCurrentPage(null)} userRole={userRole} />;
   if (currentPage === "events") return <Events onBack={() => setCurrentPage(null)} userRole={userRole} userId={userId} />;
-  if (currentPage === "sunday_school") return <SundaySchool onBack={() => setCurrentPage(null)} userRole={userRole} />;
+  if (currentPage === "sunday_school") return <SundaySchool onBack={() => setCurrentPage(null)} userRole={userRole} userId={userId} />;
   if (currentPage === "sermons") return <Sermons onBack={() => setCurrentPage(null)} userRole={userRole} />;
   if (currentPage === "announcements") return <Announcements onBack={() => setCurrentPage(null)} userRole={userRole} />;
   if (currentPage === "devotionals") return <Devotionals onBack={() => setCurrentPage(null)} userRole={userRole} />;
