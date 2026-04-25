@@ -167,15 +167,24 @@ export default function SundaySchool({ onBack, userRole, userId }: {
     if (!error && data) {
       setStudents([data, ...students]);
 
+      // 登录用户：如果 profile 没有电话，写回去
+      if (!isGuest && userId && !userPhone && contactPhone) {
+        await supabase
+        .from("profiles")
+        .update({ phone: contactPhone })
+        .eq("user_id", userId);
+        setUserPhone(contactPhone);
+      }
+
       // 访客签到后重置表单
       if (isGuest) {
         setChildName("");
         setCheckedInBy("");
         setContactPhone("");
       } else {
-        // 登录用户只重置孩子选择和免责声明
-        setSelectedChildId(null);
-        setChildName("");
+      // 登录用户只重置孩子选择和免责声明
+      setSelectedChildId(null);
+      setChildName("");
       }
       setAgreedToDisclaimer(false);
       alert(`${childName} 签到成功！`);
