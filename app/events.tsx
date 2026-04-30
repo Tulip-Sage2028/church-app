@@ -12,6 +12,7 @@ type Event = {
   location: string;
   type: string;
   max_participants: number | null;
+  created_at?: string;
 };
 
 type Attendance = {
@@ -33,6 +34,14 @@ type AttendanceRecord = {
   phone: string;
 };
 
+type SortMode = "date_asc" | "date_desc" | "created_desc";
+
+const SORT_OPTIONS: { key: SortMode; label: string; icon: string }[] = [
+  { key: "date_asc", label: "日期最近", icon: "📅↑" },
+  { key: "date_desc", label: "日期最远", icon: "📅↓" },
+  { key: "created_desc", label: "最新发布", icon: "🆕" },
+];
+
 export default function Events({ onBack, userRole, userId }: { onBack: () => void; userRole: string; userId: string | null }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -40,6 +49,7 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
   const [activeTab, setActiveTab] = useState<"attendance" | "volunteer">("attendance");
+  const [sortMode, setSortMode] = useState<SortMode>("date_asc");
   const [editingCount, setEditingCount] = useState<{ [key: number]: string }>({});
   const [checkInCount, setCheckInCount] = useState<{ [key: number]: string }>({});
   const [checkInName, setCheckInName] = useState<{ [key: number]: string }>({});
@@ -382,7 +392,32 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
         { key: "volunteer", label: "内部事工" },
       ];
 
-  const filteredEvents = events.filter((e) => (e.type || "attendance") === activeTab);
+  // 先按 type 过滤,再按 sortMode 排序
+  const filteredEvents = events
+    .filter((e) => (e.type || "attendance") === activeTab)
+    .slice() // 复制一份避免直接 mutate state
+    .sort((a, b) => {
+      if (sortMode === "date_asc") {
+        // 日期升序(最近的活动在前),同日期按时间升序
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.time || "").localeCompare(b.time || "");
+      }
+      if (sortMode === "date_desc") {
+        // 日期降序(最远的在前)
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (b.time || "").localeCompare(a.time || "");
+      }
+      if (sortMode === "created_desc") {
+        // 最新发布在前 — 用 created_at,如果没有则 fallback 用 id(自增 id 越大越新)
+        if (a.created_at && b.created_at) {
+          return b.created_at.localeCompare(a.created_at);
+        }
+        return b.id - a.id;
+      }
+      return 0;
+    });
 
   if (loading) {
     return (
@@ -430,6 +465,46 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* ══ 排序切换 ══ */}
+      <View style={{
+        flexDirection: "row",
+        backgroundColor: "white",
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: "#e5e7eb",
+        alignItems: "center",
+        gap: 6,
+        flexWrap: "wrap",
+      }}>
+        <Text style={{ fontSize: 12, color: "#6b7280", marginRight: 4 }}>排序:</Text>
+        {SORT_OPTIONS.map((opt) => {
+          const active = sortMode === opt.key;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              onPress={() => setSortMode(opt.key)}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 14,
+                backgroundColor: active ? "#16a34a" : "#f3f4f6",
+                borderWidth: 1,
+                borderColor: active ? "#16a34a" : "#e5e7eb",
+              }}
+            >
+              <Text style={{
+                fontSize: 12,
+                color: active ? "white" : "#6b7280",
+                fontWeight: active ? "bold" : "normal",
+              }}>
+                {opt.icon} {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={{ padding: 16 }}>

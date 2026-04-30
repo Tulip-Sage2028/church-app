@@ -14,10 +14,11 @@ import Sermons from "./sermons";
 import SundaySchool from "./sunday_school";
 
 const MENU_ITEMS = [
-  { id: 1, title: "聚会日程安排", description: "查看本周及upcoming聚会", color: "#2563eb", icon: "📅" },
+  // 聚会日程安排功能暂时隐藏 — 取消注释即可恢复
+  // { id: 1, title: "聚会日程安排", description: "查看本周及upcoming聚会", color: "#2563eb", icon: "📅" },
   { id: 2, title: "团契活动", description: "活动签到 · 事工报名", color: "#16a34a", icon: "✅" },
   { id: 3, title: "主日学班级签到", description: "大中小班签到签出", color: "#9333ea", icon: "👧" },
-  { id: 4, title: "主日信息", description: "收听及阅读讲道信息", color: "#ea580c", icon: "📖" },
+  { id: 4, title: "主日信息", description: "本周周报及往期讲道", color: "#ea580c", icon: "📖" },
   { id: 5, title: "公告栏", description: "最新消息及通知", color: "#f59e0b", icon: "📢" },
   { id: 6, title: "每日读经", description: "读经打卡及牧师解析", color: "#16a34a", icon: "📝" },
   // 问答交流功能暂时隐藏 — 取消注释即可恢复
