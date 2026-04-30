@@ -48,6 +48,7 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
   const [totalCheckins, setTotalCheckins] = useState<{ [key: number]: number }>({});
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
+  const [userPhone, setUserPhone] = useState(""); // 登录用户的电话(从 profiles 取)
   const [activeTab, setActiveTab] = useState<"attendance" | "volunteer">("attendance");
   const [sortMode, setSortMode] = useState<SortMode>("date_asc");
   const [editingCount, setEditingCount] = useState<{ [key: number]: string }>({});
@@ -81,10 +82,13 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username")
+          .select("username, phone")
           .eq("user_id", user.id)
           .single();
-        if (profile) setUsername(profile.username);
+        if (profile) {
+          setUsername(profile.username || "");
+          setUserPhone(profile.phone || "");
+        }
       }
     }
 
@@ -164,17 +168,31 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
   }
 
   async function handleCheckIn(eventId: number, eventTitle: string, maxParticipants: number | null) {
-    const name = checkInName[eventId]?.trim();
-    const phone = checkInPhone[eventId]?.trim();
+    // 登录用户使用 profile 数据,访客使用表单输入
+    const name = isGuest ? checkInName[eventId]?.trim() : username;
+    const phone = isGuest ? checkInPhone[eventId]?.trim() : userPhone;
     const count = parseInt(checkInCount[eventId] || "1") || 1;
 
-    if (!name) {
-      alert("请填写姓名");
-      return;
-    }
-    if (!phone) {
-      alert("请填写电话");
-      return;
+    // 访客必须填写
+    if (isGuest) {
+      if (!name) {
+        alert("请填写姓名");
+        return;
+      }
+      if (!phone) {
+        alert("请填写电话");
+        return;
+      }
+    } else {
+      // 登录用户:如果 profile 没有姓名/电话,提示去补
+      if (!name) {
+        alert("你的账号没有用户名,请先到「个人资料」补填");
+        return;
+      }
+      if (!phone) {
+        alert("你的账号还没有手机号,请先到「个人资料」补填手机号后再报名");
+        return;
+      }
     }
 
     // 检查人数上限
@@ -395,22 +413,19 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
   // 先按 type 过滤,再按 sortMode 排序
   const filteredEvents = events
     .filter((e) => (e.type || "attendance") === activeTab)
-    .slice() // 复制一份避免直接 mutate state
+    .slice()
     .sort((a, b) => {
       if (sortMode === "date_asc") {
-        // 日期升序(最近的活动在前),同日期按时间升序
         const dateCompare = a.date.localeCompare(b.date);
         if (dateCompare !== 0) return dateCompare;
         return (a.time || "").localeCompare(b.time || "");
       }
       if (sortMode === "date_desc") {
-        // 日期降序(最远的在前)
         const dateCompare = b.date.localeCompare(a.date);
         if (dateCompare !== 0) return dateCompare;
         return (b.time || "").localeCompare(a.time || "");
       }
       if (sortMode === "created_desc") {
-        // 最新发布在前 — 用 created_at,如果没有则 fallback 用 id(自增 id 越大越新)
         if (a.created_at && b.created_at) {
           return b.created_at.localeCompare(a.created_at);
         }
@@ -613,6 +628,11 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
             const list = attendanceList[event.id] || [];
             const isFull = event.max_participants !== null && total >= (event.max_participants || 0);
 
+            // 登录用户:姓名电话从 profile 取(只读);访客:从输入框取(可编辑)
+            const displayName = isGuest ? (checkInName[event.id] || "") : username;
+            const displayPhone = isGuest ? (checkInPhone[event.id] || "") : userPhone;
+            const profileMissingPhone = !isGuest && !userPhone;
+
             return (
               <View
                 key={event.id}
@@ -655,22 +675,54 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
                       填写报名信息
                     </Text>
 
+                    {/* 登录用户提示 */}
+                    {!isGuest && (
+                      <Text style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, lineHeight: 16 }}>
+                        💡 使用您的账号信息报名,如需修改请到「个人资料」更新
+                      </Text>
+                    )}
+
                     <Text style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>姓名 *</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 8, fontSize: 14, marginBottom: 8, backgroundColor: "white" }}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: "#e5e7eb",
+                        borderRadius: 8,
+                        padding: 8,
+                        fontSize: 14,
+                        marginBottom: 8,
+                        backgroundColor: isGuest ? "white" : "#f3f4f6",
+                        color: isGuest ? "#000" : "#6b7280",
+                      }}
                       placeholder="请输入姓名"
-                      value={checkInName[event.id] || ""}
-                      onChangeText={(val) => setCheckInName((prev) => ({ ...prev, [event.id]: val }))}
+                      value={displayName}
+                      onChangeText={isGuest ? (val) => setCheckInName((prev) => ({ ...prev, [event.id]: val })) : undefined}
+                      editable={isGuest}
                     />
 
                     <Text style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>电话 *</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 8, fontSize: 14, marginBottom: 8, backgroundColor: "white" }}
-                      placeholder="请输入电话"
-                      value={checkInPhone[event.id] || ""}
-                      onChangeText={(val) => setCheckInPhone((prev) => ({ ...prev, [event.id]: val }))}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: profileMissingPhone ? "#fca5a5" : "#e5e7eb",
+                        borderRadius: 8,
+                        padding: 8,
+                        fontSize: 14,
+                        marginBottom: profileMissingPhone ? 4 : 8,
+                        backgroundColor: isGuest ? "white" : "#f3f4f6",
+                        color: isGuest ? "#000" : "#6b7280",
+                      }}
+                      placeholder={profileMissingPhone ? "未填写,请到个人资料补填" : "请输入电话"}
+                      value={displayPhone}
+                      onChangeText={isGuest ? (val) => setCheckInPhone((prev) => ({ ...prev, [event.id]: val })) : undefined}
+                      editable={isGuest}
                       keyboardType="phone-pad"
                     />
+                    {profileMissingPhone && (
+                      <Text style={{ fontSize: 11, color: "#dc2626", marginBottom: 8 }}>
+                        ⚠️ 您的账号还没有手机号,请先到「个人资料」补填
+                      </Text>
+                    )}
 
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
                       <Text style={{ fontSize: 13, color: "#374151" }}>人数：</Text>
@@ -684,8 +736,12 @@ export default function Events({ onBack, userRole, userId }: { onBack: () => voi
                     </View>
 
                     <TouchableOpacity
-                      style={{ backgroundColor: "#16a34a", padding: 10, borderRadius: 8, alignItems: "center" }}
+                      style={{
+                        backgroundColor: profileMissingPhone ? "#9ca3af" : "#16a34a",
+                        padding: 10, borderRadius: 8, alignItems: "center",
+                      }}
                       onPress={() => handleCheckIn(event.id, event.title, event.max_participants)}
+                      disabled={profileMissingPhone}
                     >
                       <Text style={{ color: "white", fontWeight: "bold" }}>确认报名</Text>
                     </TouchableOpacity>
