@@ -42,6 +42,10 @@ export default function Admin({ onBack, userRole }: { onBack: () => void; userRo
   const [counting, setCounting] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+
+  // 是否有权限重置密码 — 仅 admin 和 pastor
+  const canResetPassword = userRole === "admin" || userRole === "pastor";
 
   async function fetchUsers() {
     console.log("userRole in admin:", userRole);
@@ -87,6 +91,48 @@ export default function Admin({ onBack, userRole }: { onBack: () => void; userRo
       alert(`用户 ${username} 已删除！`);
     } else {
       alert("删除失败：" + error.message);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  重置密码 — 调用 Supabase Edge Function: reset-password
+  // ════════════════════════════════════════════════════════
+  async function handleResetPassword(userId: string, username: string) {
+    if (!confirm(
+      `确定将「${username}」的密码重置为 111111 吗？\n\n` +
+      `重置后请通知该用户用 111111 登录,并立刻在「个人资料 → 修改密码」中修改。`
+    )) return;
+
+    setResettingUserId(userId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-password", {
+        body: { user_id: userId },
+      });
+
+      if (error) {
+        // Supabase 客户端的 functions.invoke 错误
+        alert(`重置失败: ${error.message}`);
+        return;
+      }
+
+      if (data?.success === false) {
+        // Edge Function 返回的业务错误
+        alert(`重置失败: ${data.error || "未知错误"}`);
+        return;
+      }
+
+      // 成功
+      alert(
+        `✅ 重置成功!\n\n` +
+        `用户 ${username} 的临时密码已设为:111111\n\n` +
+        `请通知该用户登录后立刻修改密码。`
+      );
+
+    } catch (err: any) {
+      alert(`重置失败: ${err.message || "网络错误"}`);
+    } finally {
+      setResettingUserId(null);
     }
   }
 
@@ -314,13 +360,30 @@ export default function Admin({ onBack, userRole }: { onBack: () => void; userRo
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={{ flexDirection: "row", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
                       {can(userRole, "manage_user_roles") && (
                         <TouchableOpacity
                           style={{ backgroundColor: "#f3f4f6", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
                           onPress={() => setEditingUserId(user.user_id)}
                         >
                           <Text style={{ fontSize: 12, color: "#374151" }}>✏️ 修改角色</Text>
+                        </TouchableOpacity>
+                      )}
+                      {canResetPassword && (
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: resettingUserId === user.user_id ? "#fde68a" : "#fef3c7",
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 20,
+                            opacity: resettingUserId === user.user_id ? 0.6 : 1,
+                          }}
+                          onPress={() => handleResetPassword(user.user_id, user.username)}
+                          disabled={resettingUserId === user.user_id}
+                        >
+                          <Text style={{ fontSize: 12, color: "#92400e" }}>
+                            {resettingUserId === user.user_id ? "⏳ 重置中..." : "🔑 重置密码"}
+                          </Text>
                         </TouchableOpacity>
                       )}
                       {can(userRole, "delete_user") && (
