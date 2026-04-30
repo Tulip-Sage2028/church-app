@@ -132,15 +132,13 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
       .map((l) => `<p class="ann-item">${l}</p>`)
       .join("");
 
-    // 每段歌词用 <p class="lyric-line"> 包裹,浏览器自动 wrap 长行
+    // 多段歌词:用 <br> 分隔,段间紧凑无空行
     const hymnsHTML = hymns.map((h) => {
-      const paragraphsHTML = h.paragraphs
-        .map((para: string) => `<p class="lyric-line">${para}</p>`)
-        .join("");
+      const lyricsHTML = h.paragraphs.join("<br>");
       return `
       <div class="hymn-block">
         <div class="hymn-title">${h.title}</div>
-        <div class="hymn-lyrics">${paragraphsHTML}</div>
+        <div class="hymn-lyrics">${lyricsHTML}</div>
       </div>
     `;
     }).join("");
@@ -442,12 +440,6 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     line-height: 1.55;
     text-align: center;
     word-break: break-word;
-  }
-
-  /* 每段歌词:浏览器自动 wrap;段间紧凑无空行 */
-  .lyric-line {
-    margin: 0;
-    padding: 0;
   }
 </style>
 <script>
