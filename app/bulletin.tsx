@@ -4,6 +4,9 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-nativ
 const LOGO_URL = "https://lzakcytxxyocchikyukw.supabase.co/storage/v1/object/public/sermons/church-logo.png";
 const COVER_URL = "https://lzakcytxxyocchikyukw.supabase.co/storage/v1/object/public/sermons/bulletin-cover.jpg";
 
+// 歌词字数预警阈值 — 超过此值会提示用户内容可能太多
+const HYMNS_WARN_THRESHOLD = 1500;
+
 export default function Bulletin({ onBack }: { onBack: () => void }) {
   const [date, setDate] = useState("");
   const [sermonTitle, setSermonTitle] = useState("");
@@ -14,13 +17,44 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
   const [hasCommunion, setHasCommunion] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // 计算歌词总字数(只统计歌词内容,不算 # 标题行,不算空白)
+  const hymnsCharCount = hymnsText
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("")
+    .replace(/\s/g, "")
+    .length;
+
+  const isHymnsTooLong = hymnsCharCount > HYMNS_WARN_THRESHOLD;
+
   function parseHymns(text: string) {
     const blocks = text.trim().split(/^#/m).filter((b) => b.trim());
     return blocks.map((block) => {
       const lines = block.trim().split("\n");
       const title = lines[0].trim();
-      const lyrics = lines.slice(1).join("\n").trim();
-      return { title, lyrics };
+      // 处理歌词行:用空行分段,段内行合并(空格连接)
+      const lyricLines = lines.slice(1);
+      const paragraphs: string[] = [];
+      let currentPara: string[] = [];
+
+      for (const line of lyricLines) {
+        const trimmed = line.trim();
+        if (trimmed === "") {
+          // 遇到空行 → 结束当前段
+          if (currentPara.length > 0) {
+            paragraphs.push(currentPara.join(" "));
+            currentPara = [];
+          }
+        } else {
+          currentPara.push(trimmed);
+        }
+      }
+      // 最后一段
+      if (currentPara.length > 0) {
+        paragraphs.push(currentPara.join(" "));
+      }
+
+      return { title, paragraphs };
     });
   }
 
@@ -37,6 +71,20 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
       alert("请填写日期和证道题目");
       return;
     }
+
+    // 字数过多警告 — 让用户决定是否继续
+    if (isHymnsTooLong) {
+      const proceed = confirm(
+        `⚠️ 歌词字数较多（约 ${hymnsCharCount} 字）\n\n` +
+        `周报右页可能装不下,导致部分内容被截断。\n\n` +
+        `建议:\n` +
+        `• 缩短歌词内容\n` +
+        `• 把歌词放更紧凑些(减少不必要的空行)\n\n` +
+        `仍要继续生成吗?`
+      );
+      if (!proceed) return;
+    }
+
     setGenerating(true);
     const hymns = parseHymns(hymnsText);
     const worshipHymns = hymns.slice(0, hymns.length - 1);
@@ -84,12 +132,18 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
       .map((l) => `<p class="ann-item">${l}</p>`)
       .join("");
 
-    const hymnsHTML = hymns.map((h) => `
+    // 每段歌词用 <p class="lyric-line"> 包裹,浏览器自动 wrap 长行
+    const hymnsHTML = hymns.map((h) => {
+      const paragraphsHTML = h.paragraphs
+        .map((para: string) => `<p class="lyric-line">${para}</p>`)
+        .join("");
+      return `
       <div class="hymn-block">
         <div class="hymn-title">${h.title}</div>
-        <div class="hymn-lyrics">${h.lyrics.replace(/\n/g, "<br>")}</div>
+        <div class="hymn-lyrics">${paragraphsHTML}</div>
       </div>
-    `).join("");
+    `;
+    }).join("");
 
     const worshipHymnsHTML = worshipHymns.map((h) =>
       `<div class="wt-hymn">${h.title}</div>`
@@ -387,7 +441,13 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     font-size: 7.5pt;
     line-height: 1.55;
     text-align: center;
-    word-break: keep-all;
+    word-break: break-word;
+  }
+
+  /* 每段歌词:浏览器自动 wrap;段间紧凑无空行 */
+  .lyric-line {
+    margin: 0;
+    padding: 0;
   }
 </style>
 <script>
@@ -396,15 +456,6 @@ window.onload = function() {
   const hymnsArea = document.querySelector('.hymns-area');
   const header = document.querySelector('.hymns-header');
   if (!container || !hymnsArea) return;
-
-  // 同段内短行合并，段落之间保留
-  const lyricDivs = hymnsArea.querySelectorAll('.hymn-lyrics');
-  lyricDivs.forEach(div => {
-    div.innerHTML = div.innerHTML
-      .replace(/<br>\\s*<br>/gi, '§§')
-      .replace(/<br>/gi, ' ')
-      .replace(/§§/g, '<br><br>');
-  });
 
   // 诗歌标题太长自动缩小
   const hymnTitles = hymnsArea.querySelectorAll('.hymn-title');
@@ -424,9 +475,9 @@ window.onload = function() {
   let fontSize = 7.5;
   let lineHeight = 1.55;
 
-  while (hymnsArea.scrollHeight > availableHeight && fontSize > 4.5) {
+  while (hymnsArea.scrollHeight > availableHeight && fontSize > 4.0) {
     fontSize -= 0.15;
-    lineHeight = Math.max(1.15, lineHeight - 0.02);
+    lineHeight = Math.max(1.10, lineHeight - 0.02);
     hymnsArea.style.fontSize = fontSize + 'pt';
     hymnsArea.style.lineHeight = lineHeight.toString();
   }
@@ -690,16 +741,29 @@ window.onload = function() {
         <View style={{ backgroundColor: "#f5f3ff", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#ddd6fe" }}>
           <Text style={{ fontSize: 12, color: "#7c3aed", lineHeight: 20 }}>
             每首诗歌名称前加 # 号，其余是歌词，最后一首自动作为回应诗歌。{"\n"}
+            空行用作段落分隔,同段内的多行会自动合并显示。{"\n"}
             例如：#何等榮耀{"\n"}祂的聖潔 如此美麗...{"\n"}#藉我賜恩福{"\n"}在廛世生命崎岖...
           </Text>
         </View>
         <TextInput
-          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 14, marginBottom: 20, backgroundColor: "white", minHeight: 240, textAlignVertical: "top" }}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 14, marginBottom: 6, backgroundColor: "white", minHeight: 240, textAlignVertical: "top" }}
           placeholder={"#第一首\n歌词...\n#第二首\n歌词...\n#第三首\n歌词...\n#回应诗歌\n歌词..."}
           value={hymnsText}
           onChangeText={setHymnsText}
           multiline
         />
+        {/* 字数统计与超长警告 */}
+        <View style={{ marginBottom: 20, paddingHorizontal: 4 }}>
+          <Text style={{
+            fontSize: 12,
+            color: isHymnsTooLong ? "#dc2626" : "#6b7280",
+            fontWeight: isHymnsTooLong ? "bold" : "normal",
+          }}>
+            {isHymnsTooLong
+              ? `⚠️ 当前歌词约 ${hymnsCharCount} 字 (超过建议上限 ${HYMNS_WARN_THRESHOLD} 字),可能装不下,请缩短或减少空行`
+              : `当前歌词约 ${hymnsCharCount} 字 (建议 ≤ ${HYMNS_WARN_THRESHOLD} 字)`}
+          </Text>
+        </View>
 
         <Text style={{ fontSize: 15, fontWeight: "bold", color: "#374151", marginBottom: 4 }}>报告事项</Text>
         <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>每行一条，直接复制贴入</Text>
