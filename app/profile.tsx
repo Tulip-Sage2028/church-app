@@ -6,12 +6,21 @@ export default function Profile({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [smsOptIn, setSmsOptIn] = useState(true);
   const [role, setRole] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
+
+  // 手机号格式验证:支持 + 开头的国际号码,或 10 位本地号
+  function isValidPhone(input: string): boolean {
+    const cleaned = input.replace(/[\s\-\(\)\.]/g, "");
+    if (cleaned.startsWith("+")) {
+      return /^\+\d{7,15}$/.test(cleaned);
+    }
+    return /^\d{10}$/.test(cleaned);
+  }
 
   useEffect(() => {
     fetchProfile();
@@ -29,8 +38,8 @@ export default function Profile({ onBack }: { onBack: () => void }) {
 
     if (data) {
       setUsername(data.username || "");
-      setEmail(data.email || "");
       setPhone(data.phone || "");
+      setSmsOptIn(data.sms_opt_in !== false); // 数据库为 null 或 true 都视为同意
       setRole(data.role || "guest");
     }
 
@@ -38,8 +47,12 @@ export default function Profile({ onBack }: { onBack: () => void }) {
   }
 
   async function handleSave() {
-    if (email && !email.includes("@")) {
-      alert("请输入正确的电邮格式");
+    if (!phone.trim()) {
+      alert("请填写手机号");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      alert("手机号格式不正确\n请输入 10 位本地号(如 9495551234)\n或国际号(如 +8613812345678)");
       return;
     }
 
@@ -50,7 +63,7 @@ export default function Profile({ onBack }: { onBack: () => void }) {
 
     const { error } = await supabase
       .from("profiles")
-      .update({ email, phone })
+      .update({ phone: phone.trim(), sms_opt_in: smsOptIn })
       .eq("user_id", user.id);
 
     setSaving(false);
@@ -224,30 +237,65 @@ export default function Profile({ onBack }: { onBack: () => void }) {
               <Text style={{ fontSize: 16, color: "#6b7280" }}>{username}</Text>
             </View>
 
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>电邮地址</Text>
+            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>
+              手机号 <Text style={{ color: "#ef4444" }}>*</Text>
+            </Text>
             <TextInput
               style={{
                 borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
-                padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: "white",
+                padding: 12, fontSize: 16, marginBottom: 6, backgroundColor: "white",
               }}
-              placeholder="你的电邮地址"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-
-            <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>电话号码</Text>
-            <TextInput
-              style={{
-                borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
-                padding: 12, fontSize: 16, marginBottom: 32, backgroundColor: "white",
-              }}
-              placeholder="你的电话号码"
+              placeholder="例如:9495551234 或 +8613812345678"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
+            <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 20 }}>
+              请填写本地 10 位手机号,或以「+」开头的国际号码
+            </Text>
+
+            {/* 同意接收短信通知 */}
+            <TouchableOpacity
+              onPress={() => setSmsOptIn(!smsOptIn)}
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                backgroundColor: smsOptIn ? "#eff6ff" : "white",
+                borderWidth: 1,
+                borderColor: smsOptIn ? "#2563eb" : "#ccc",
+                borderRadius: 8,
+                padding: 14,
+                marginBottom: 32,
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 4,
+                  borderWidth: 2,
+                  borderColor: smsOptIn ? "#2563eb" : "#9ca3af",
+                  backgroundColor: smsOptIn ? "#2563eb" : "white",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 12,
+                  marginTop: 2,
+                }}
+              >
+                {smsOptIn && (
+                  <Text style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>✓</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "bold", color: "#374151" }}>
+                  我同意接收教会短信通知
+                </Text>
+                <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 18 }}>
+                  勾选后,教会将在有重要通知(如聚会变动、紧急事项等)时通过短信告知你。
+                </Text>
+              </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={{

@@ -17,7 +17,7 @@ export default function QR({ onBack }: { onBack: () => void }) {
       {/* 主体 */}
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <View style={{
-          padding: 24, backgroundColor: "white", borderRadius: 20,
+          padding: 24, backgroundColor: "#ffffff", borderRadius: 20,
           shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1, shadowRadius: 12, elevation: 6,
           alignItems: "center",
@@ -29,14 +29,23 @@ export default function QR({ onBack }: { onBack: () => void }) {
             用手机扫描下方二维码
           </Text>
 
-          <QRCode
-            value={APP_URL}
-            size={220}
-            color="#1e3a5f"
-            backgroundColor="#ffffff"
-          />
+          {/* QR 码外层纯白容器,确保边缘留白干净 */}
+          <View style={{
+            padding: 16,
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+          }}>
+            <QRCode
+              value={APP_URL}
+              size={280}
+              color="#1e3a5f"
+              backgroundColor="#ffffff"
+              ecl="H"
+              quietZone={12}
+            />
+          </View>
 
-          <Text style={{ marginTop: 24, fontSize: 11, color: "#d1d5db" }}>
+          <Text style={{ marginTop: 24, fontSize: 14, fontWeight: "bold", color: "#1e3a5f" }}>
             {APP_URL}
           </Text>
         </View>

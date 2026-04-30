@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+const LOGO_URL = "https://lzakcytxxyocchikyukw.supabase.co/storage/v1/object/public/sermons/church-logo.png";
+const COVER_URL = "https://lzakcytxxyocchikyukw.supabase.co/storage/v1/object/public/sermons/bulletin-cover.jpg";
+
 export default function Bulletin({ onBack }: { onBack: () => void }) {
   const [date, setDate] = useState("");
   const [sermonTitle, setSermonTitle] = useState("");
@@ -8,6 +11,7 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
   const [hymnsText, setHymnsText] = useState("");
   const [bibleReading, setBibleReading] = useState("");
   const [announcements, setAnnouncements] = useState("");
+  const [hasCommunion, setHasCommunion] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   function parseHymns(text: string) {
@@ -51,13 +55,12 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     setTimeout(() => {
       printWindow.print();
       setGenerating(false);
-    }, 800);
+    }, 1200);
   }
 
   function generateHTML(hymns: any[], worshipHymns: any[], responseHymn: any) {
     const formattedDate = formatDate(date);
 
-    // 经文书名自动加粗
     const formattedScripture = scriptureText.replace(
       /(尼希米记|帖前|帖撒罗尼迦前书|路加福音|哥林多前书|诗篇|耶利米书|以赛亚书|约翰福音|创世记|出埃及记|利未记|民数记|申命记|约书亚记|士师记|路得记|撒母耳记上|撒母耳记下|列王纪上|列王纪下|历代志上|历代志下|以斯拉记|以斯帖记|约伯记|箴言|传道书|雅歌|但以理书|何西阿书|约珥书|阿摩司书|俄巴底亚书|约拿书|弥迦书|那鸿书|哈巴谷书|西番雅书|哈该书|撒迦利亚书|玛拉基书|马太福音|马可福音|使徒行传|罗马书|加拉太书|以弗所书|腓立比书|歌罗西书|提摩太前书|提摩太后书|帖撒罗尼迦后书|希伯来书|雅各书|彼得前书|彼得后书|约翰一书|约翰二书|约翰三书|犹大书|启示录)/g,
       "<b style='font-weight:900;'>$1</b>"
@@ -92,6 +95,14 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
       `<div class="wt-hymn">${h.title}</div>`
     ).join("");
 
+    // 主餐行 — 仅在勾选时输出
+    const communionRow = hasCommunion ? `
+        <tr>
+          <td class="wt-left"><div class="wt-cn">主餐</div></td>
+          <td class="wt-right"></td>
+        </tr>
+    ` : "";
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -99,11 +110,14 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
 <title>恩典生命团契周报 ${formattedDate}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
     font-family: "SimSun", "宋体", "Microsoft YaHei", "微软雅黑", serif;
     font-size: 9pt;
     color: #000;
     background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   @page { size: A4 landscape; margin: 6mm; }
@@ -125,12 +139,13 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
   /* ══ 第一页左半 ══ */
   .p1-left {
     width: 50%;
-    height: 100%;
+    height: 196mm;
     padding: 4mm 5mm;
     border: 1pt solid #000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .church-header {
@@ -140,24 +155,10 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     border-bottom: 1pt solid #000;
     padding-bottom: 2mm;
     margin-bottom: 3mm;
+    flex-shrink: 0;
   }
 
-  .logo-area { display: flex; align-items: center; gap: 2mm; }
-
-  .logo-circle {
-    width: 11mm;
-    height: 11mm;
-    border: 1.5pt solid #000;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14pt;
-    font-weight: bold;
-  }
-
-  .church-name { font-size: 14pt; font-weight: bold; line-height: 1.2; }
-  .church-name-en { font-size: 7pt; color: #444; }
+  .logo-area { display: flex; align-items: center; }
   .church-url { font-size: 10pt; font-weight: bold; }
 
   .sermon-box {
@@ -188,7 +189,11 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     overflow: hidden;
   }
 
-  .ann-box { flex: 1; overflow: hidden; }
+  .ann-box {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
 
   .ann-title {
     text-align: center;
@@ -211,41 +216,49 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     border-top: 0.5pt solid #ccc;
     padding-top: 1mm;
     margin-top: 2mm;
+    flex-shrink: 0;
   }
 
-  /* ══ 第一页右半 ══ */
+  /* ══ 第一页右半：图片 ══ */
   .p1-right {
-    width: 50%;
-    height: 100%;
-    border: 1pt solid #000;
-    border-left: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 50%;
+  height: 196mm;
+  border: 1pt solid #000;
+  border-left: none;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10mm;
   }
 
-  .p1-right-placeholder {
-    color: #ccc;
-    font-size: 10pt;
-    text-align: center;
-  }
+  .p1-right img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  } 
 
   /* ══ 第二页左半 ══ */
   .p2-left {
     width: 50%;
-    height: 100%;
+    height: 196mm;
     padding: 4mm 5mm;
     border: 1pt solid #000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .worship-box {
     border: 0.8pt solid #000;
-    padding: 3mm;
+    padding: 3mm 3mm 4mm 3mm;
     flex: 1;
     overflow: hidden;
+    min-height: 0;
   }
 
   .worship-title {
@@ -295,6 +308,7 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     gap: 3mm;
     margin-top: 2mm;
     justify-content: space-around;
+    flex-shrink: 0;
   }
 
   .qr-box {
@@ -324,18 +338,20 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     font-size: 7.5pt;
     text-align: center;
     line-height: 1.6;
+    flex-shrink: 0;
   }
 
   /* ══ 第二页右半 ══ */
   .p2-right {
     width: 50%;
-    height: 100%;
+    height: 196mm;
     padding: 4mm 5mm;
     border: 1pt solid #000;
     border-left: none;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .hymns-header {
@@ -353,6 +369,7 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     overflow: hidden;
     font-size: 7.5pt;
     line-height: 1.55;
+    min-height: 0;
   }
 
   .hymn-block { margin-bottom: 3mm; }
@@ -372,36 +389,24 @@ export default function Bulletin({ onBack }: { onBack: () => void }) {
     text-align: center;
     word-break: keep-all;
   }
-
-  .p2-right-footer {
-    font-size: 7pt;
-    color: #555;
-    text-align: center;
-    border-top: 0.5pt solid #ccc;
-    padding-top: 1mm;
-    margin-top: 2mm;
-    line-height: 1.6;
-    flex-shrink: 0;
-  }
 </style>
 <script>
 window.onload = function() {
   const container = document.querySelector('.p2-right');
   const hymnsArea = document.querySelector('.hymns-area');
-  const footer = document.querySelector('.p2-right-footer');
   const header = document.querySelector('.hymns-header');
   if (!container || !hymnsArea) return;
 
-  // 第一步：同段内短行合并，段落之间保留
+  // 同段内短行合并，段落之间保留
   const lyricDivs = hymnsArea.querySelectorAll('.hymn-lyrics');
   lyricDivs.forEach(div => {
     div.innerHTML = div.innerHTML
-      .replace(/<br>\s*<br>/gi, '§§')
+      .replace(/<br>\\s*<br>/gi, '§§')
       .replace(/<br>/gi, ' ')
       .replace(/§§/g, '<br><br>');
   });
 
-  // 第二步：诗歌标题太长自动缩小
+  // 诗歌标题太长自动缩小
   const hymnTitles = hymnsArea.querySelectorAll('.hymn-title');
   hymnTitles.forEach(title => {
     let titleSize = 9.5;
@@ -411,21 +416,14 @@ window.onload = function() {
     }
   });
 
-  // 第三步：自动缩小字体直到内容全部放得下
+  // 自动缩小字体直到内容全部放得下
   const availableHeight = container.offsetHeight
     - (header ? header.offsetHeight : 0)
-    - (footer ? footer.offsetHeight : 0)
     - 16;
 
   let fontSize = 7.5;
   let lineHeight = 1.55;
 
-  while (hymnsArea.scrollHeight > availableHeight && fontSize > 4.5) {
-    fontSize -= 0.15;
-    lineHeight = Math.max(1.15, lineHeight - 0.02);
-    hymnsArea.style.fontSize = fontSize + 'pt';
-    hymnsArea.style.lineHeight = lineHeight.toString();
-  }
   while (hymnsArea.scrollHeight > availableHeight && fontSize > 4.5) {
     fontSize -= 0.15;
     lineHeight = Math.max(1.15, lineHeight - 0.02);
@@ -439,7 +437,6 @@ window.onload = function() {
     const annAvailableHeight = annBox.offsetHeight;
     let annFontSize = 8.0;
     let annLineHeight = 1.6;
-
     while (annBox.scrollHeight > annAvailableHeight && annFontSize > 5) {
       annFontSize -= 0.15;
       annLineHeight = Math.max(1.2, annLineHeight - 0.02);
@@ -447,6 +444,35 @@ window.onload = function() {
       items.forEach(item => {
         item.style.fontSize = annFontSize + 'pt';
         item.style.lineHeight = annLineHeight.toString();
+      });
+    }
+  }
+
+  // 主日崇拜程序表格自动缩小字体（防止有主餐时最后一行被切）
+  const worshipBox = document.querySelector('.worship-box');
+  const worshipTable = document.querySelector('.worship-table');
+  if (worshipBox && worshipTable) {
+    let wtCnSize = 9.0;
+    let wtEnSize = 7.0;
+    let wtDetailSize = 8.0;
+    let wtPadding = 1.5;
+    while (worshipBox.scrollHeight > worshipBox.clientHeight && wtCnSize > 6.5) {
+      wtCnSize -= 0.15;
+      wtEnSize -= 0.12;
+      wtDetailSize -= 0.13;
+      wtPadding = Math.max(0.6, wtPadding - 0.04);
+
+      worshipTable.querySelectorAll('.wt-cn').forEach(el => {
+        el.style.fontSize = wtCnSize + 'pt';
+      });
+      worshipTable.querySelectorAll('.wt-en').forEach(el => {
+        el.style.fontSize = wtEnSize + 'pt';
+      });
+      worshipTable.querySelectorAll('.wt-detail, .wt-hymn').forEach(el => {
+        el.style.fontSize = wtDetailSize + 'pt';
+      });
+      worshipTable.querySelectorAll('td').forEach(el => {
+        el.style.padding = wtPadding + 'mm 2mm';
       });
     }
   }
@@ -460,11 +486,7 @@ window.onload = function() {
   <div class="p1-left">
     <div class="church-header">
       <div class="logo-area">
-        <div class="logo-circle">†</div>
-        <div>
-          <div class="church-name">恩典生命团契</div>
-          <div class="church-name-en">Grace Chinese Fellowship</div>
-        </div>
+        <img src="${LOGO_URL}" style="height:14mm; object-fit:contain;" />
       </div>
       <div class="church-url">www.gracechinese.org</div>
     </div>
@@ -488,7 +510,8 @@ window.onload = function() {
   </div>
 
   <div class="p1-right">
-    <div class="p1-right-placeholder">（图片位置）</div>
+    <img src="${COVER_URL}"
+    style="max-width:100%; max-height:100%; width:auto; height:auto; display:block;" />
   </div>
 </div>
 
@@ -511,10 +534,7 @@ window.onload = function() {
           <td class="wt-left"><div class="wt-cn">诗歌赞美</div><div class="wt-en">Hymns</div></td>
           <td class="wt-right">${worshipHymnsHTML}</td>
         </tr>
-        <tr>
-          <td class="wt-left"><div class="wt-cn">主餐</div></td>
-          <td class="wt-right"></td>
-        </tr>
+        ${communionRow}
         <tr>
           <td class="wt-left"><div class="wt-cn">读经</div><div class="wt-en">Reading of Scripture</div></td>
           <td class="wt-right"><div class="wt-detail">${bibleReading}</div></td>
@@ -568,11 +588,6 @@ window.onload = function() {
     <div class="hymns-header">【诗歌】</div>
     <div class="hymns-area">
       ${hymnsHTML}
-    </div>
-    <div class="p2-right-footer">
-      支票或 Zelle 奉献收款单位 &nbsp; Grace Chinese Fellowship<br>
-      Email: GCFofLF@gmail.com<br>
-      请首次奉献的人注明电子邮件地址以便年终发收据
     </div>
   </div>
 </div>
@@ -629,6 +644,48 @@ window.onload = function() {
           onChangeText={setBibleReading}
         />
 
+        {/* ══ 主餐勾选 ══ */}
+        <TouchableOpacity
+          onPress={() => setHasCommunion(!hasCommunion)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: hasCommunion ? "#f5f3ff" : "white",
+            borderWidth: 1,
+            borderColor: hasCommunion ? "#7c3aed" : "#ccc",
+            borderRadius: 8,
+            padding: 14,
+            marginBottom: 20,
+          }}
+          activeOpacity={0.7}
+        >
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 4,
+              borderWidth: 2,
+              borderColor: hasCommunion ? "#7c3aed" : "#9ca3af",
+              backgroundColor: hasCommunion ? "#7c3aed" : "white",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
+            }}
+          >
+            {hasCommunion && (
+              <Text style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>✓</Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "bold", color: "#374151" }}>
+              本周有主餐
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+              勾选后第二页崇拜程序中会显示「主餐」一栏
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <Text style={{ fontSize: 15, fontWeight: "bold", color: "#374151", marginBottom: 4 }}>诗歌（4 首）</Text>
         <View style={{ backgroundColor: "#f5f3ff", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#ddd6fe" }}>
           <Text style={{ fontSize: 12, color: "#7c3aed", lineHeight: 20 }}>
@@ -648,7 +705,7 @@ window.onload = function() {
         <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>每行一条，直接复制贴入</Text>
         <TextInput
           style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 14, marginBottom: 32, backgroundColor: "white", minHeight: 150, textAlignVertical: "top" }}
-          placeholder={"欢迎每位同心来敬拜复活的主耶稣基督！\n欢迎 Preschool-2 年级小朋友参加小羊学堂...\n如果您愿意信主..."}
+          placeholder={"1. 欢迎每位同心来敬拜...\n2. 欢迎 Preschool-2 年级小朋友...\n3. 如果您愿意信主..."}
           value={announcements}
           onChangeText={setAnnouncements}
           multiline

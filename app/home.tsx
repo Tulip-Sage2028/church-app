@@ -20,7 +20,8 @@ const MENU_ITEMS = [
   { id: 4, title: "主日信息", description: "收听及阅读讲道信息", color: "#ea580c", icon: "📖" },
   { id: 5, title: "公告栏", description: "最新消息及通知", color: "#f59e0b", icon: "📢" },
   { id: 6, title: "每日读经", description: "读经打卡及牧师解析", color: "#16a34a", icon: "📝" },
-  { id: 7, title: "问答交流", description: "提问 · 分享 · 交流", color: "#2563eb", icon: "💬" },
+  // 问答交流功能暂时隐藏 — 取消注释即可恢复
+  // { id: 7, title: "问答交流", description: "提问 · 分享 · 交流", color: "#2563eb", icon: "💬" },
   { id: 8, title: "系统管理", description: "用户管理 · 数据清理", color: "#ef4444", icon: "⚙️" },
   { id: 9, title: "扫码分享", description: "分享 App 给会友", color: "#0891b2", icon: "📲" },
 ];
