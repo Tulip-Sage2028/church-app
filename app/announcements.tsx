@@ -22,14 +22,15 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPinned, setIsPinned] = useState(false);
+  const [sendPush, setSendPush] = useState(false); // ⭐ 是否同时推送
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [pushing, setPushing] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   async function fetchData() {
-    // 取得当前用户名
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
@@ -40,11 +41,9 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
       if (profile) setUsername(profile.username);
     }
 
-    // 三个月前的日期
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    // 读取最近三个月的公告
     const { data } = await supabase
       .from("announcements")
       .select("*")
@@ -54,6 +53,42 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
 
     if (data) setAnnouncements(data);
     setLoading(false);
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  调用 send-push Edge Function 推送公告
+  // ════════════════════════════════════════════════════════
+  async function pushAnnouncement(announcementTitle: string, announcementContent: string) {
+    setPushing(true);
+    try {
+      // 取标题前 80 字 + 内容前 80 字作为推送预览
+      const pushTitle = announcementTitle.substring(0, 80);
+      const pushBody = announcementContent.substring(0, 80) +
+        (announcementContent.length > 80 ? "..." : "");
+
+      const { data, error } = await supabase.functions.invoke("send-push", {
+        body: {
+          title: pushTitle,
+          body: pushBody,
+          url: "/",
+        },
+      });
+
+      if (error) {
+        console.error("send-push error:", error);
+        return { success: false, message: error.message };
+      }
+
+      if (data?.success === false) {
+        return { success: false, message: data.error || "推送失败" };
+      }
+
+      return { success: true, message: data?.message || "推送已发送" };
+    } catch (err: any) {
+      return { success: false, message: err?.message || "推送失败" };
+    } finally {
+      setPushing(false);
+    }
   }
 
   async function handleCreate() {
@@ -79,11 +114,20 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
 
     if (!error && data) {
       setAnnouncements([data, ...announcements]);
+
+      // 如果勾选了同时推送,调用 Edge Function
+      let pushMessage = "";
+      if (sendPush) {
+        const result = await pushAnnouncement(title, content);
+        pushMessage = result.success ? `\n📣 ${result.message}` : `\n⚠️ 推送失败:${result.message}`;
+      }
+
       setTitle("");
       setContent("");
       setIsPinned(false);
+      setSendPush(false);
       setActiveTab("view");
-      alert("公告发布成功！");
+      alert(`公告发布成功！${pushMessage}`);
     } else {
       alert("发布失败：" + error?.message);
     }
@@ -114,12 +158,21 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
             : a
         )
       );
+
+      // 编辑时也支持推送(可选)
+      let pushMessage = "";
+      if (sendPush) {
+        const result = await pushAnnouncement(title, content);
+        pushMessage = result.success ? `\n📣 ${result.message}` : `\n⚠️ 推送失败:${result.message}`;
+      }
+
       setTitle("");
       setContent("");
       setIsPinned(false);
+      setSendPush(false);
       setEditingId(null);
       setActiveTab("view");
-      alert("公告修改成功！");
+      alert(`公告修改成功！${pushMessage}`);
     } else {
       alert("修改失败：" + error.message);
     }
@@ -145,6 +198,7 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
     setTitle(item.title);
     setContent(item.content);
     setIsPinned(item.is_pinned);
+    setSendPush(false); // 编辑时默认不勾推送(避免误推)
     setActiveTab("edit");
   }
 
@@ -200,6 +254,7 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
               setTitle("");
               setContent("");
               setIsPinned(false);
+              setSendPush(false);
               setEditingId(null);
             }}
           >
@@ -235,7 +290,6 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
                     borderLeftColor: item.is_pinned ? "#ea580c" : "#d1d5db",
                   }}
                 >
-                  {/* 置顶标签 */}
                   {item.is_pinned && (
                     <View style={{
                       backgroundColor: "#fff7ed",
@@ -251,23 +305,19 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
                     </View>
                   )}
 
-                  {/* 标题 */}
                   <Text style={{ fontSize: 16, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>
                     {item.title}
                   </Text>
 
-                  {/* 内容 */}
                   <Text style={{ fontSize: 14, color: "#374151", lineHeight: 22 }}>
                     {item.content}
                   </Text>
 
-                  {/* 发布信息 */}
                   <Text style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
                     {formatDate(item.created_at)} · {item.created_by}
                     {item.updated_at ? ` · 修改：${item.updated_by}` : ""}
                   </Text>
 
-                  {/* 编辑/删除按钮 */}
                   {can(userRole, "manage_announcements") && (
                     <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                       <TouchableOpacity
@@ -347,7 +397,7 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 10,
-                marginBottom: 24,
+                marginBottom: 12,
                 padding: 12,
                 backgroundColor: "white",
                 borderRadius: 8,
@@ -371,17 +421,58 @@ export default function Announcements({ onBack, userRole }: { onBack: () => void
               <Text style={{ fontSize: 14, color: "#374151" }}>置顶这条公告</Text>
             </TouchableOpacity>
 
+            {/* ⭐ 同时推送选项 */}
             <TouchableOpacity
               style={{
-                backgroundColor: "#ea580c",
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 10,
+                marginBottom: 24,
+                padding: 12,
+                backgroundColor: sendPush ? "#fff7ed" : "white",
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: sendPush ? "#ea580c" : "#e5e7eb",
+              }}
+              onPress={() => setSendPush(!sendPush)}
+            >
+              <View style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                borderWidth: 2,
+                borderColor: sendPush ? "#ea580c" : "#d1d5db",
+                backgroundColor: sendPush ? "#ea580c" : "white",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 2,
+              }}>
+                {sendPush && <Text style={{ color: "white", fontSize: 12 }}>✓</Text>}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, color: "#374151", fontWeight: "bold" }}>
+                  📣 同时推送通知
+                </Text>
+                <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 4, lineHeight: 16 }}>
+                  勾选后,所有已开启推送的会众会立刻收到通知(即使没打开 App)。重要公告才推送,避免打扰会友。
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: pushing ? "#fdba74" : "#ea580c",
                 padding: 14,
                 borderRadius: 8,
                 alignItems: "center",
               }}
               onPress={activeTab === "create" ? handleCreate : handleEdit}
+              disabled={pushing}
             >
               <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-                {activeTab === "create" ? "发布公告" : "保存修改"}
+                {pushing
+                  ? "推送中..."
+                  : activeTab === "create" ? "发布公告" : "保存修改"}
               </Text>
             </TouchableOpacity>
           </View>

@@ -26,7 +26,13 @@
       "favicon": "./assets/images/favicon.png",
       "name": "恩典生命团契",
       "shortName": "恩典生命团契",
-      "description": "恩典生命团契教会App"
+      "description": "恩典生命团契教会App",
+      "display": "standalone",
+      "themeColor": "#2563eb",
+      "backgroundColor": "#ffffff",
+      "startUrl": "/",
+      "orientation": "portrait",
+      "lang": "zh-Hans"
     },
     "plugins": [
       "expo-router",
