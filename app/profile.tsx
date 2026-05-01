@@ -20,7 +20,7 @@ export default function Profile({ onBack }: { onBack: () => void }) {
   const [role, setRole] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"info" | "password" | "notifications">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "password">("info");
 
   // 推送相关状态
   const [pushSubbed, setPushSubbed] = useState(false);
@@ -48,7 +48,6 @@ export default function Profile({ onBack }: { onBack: () => void }) {
     setPushSupported(supported);
     if (!supported) return;
 
-    // iOS 必须先添加到主屏幕
     if (isIOS() && !isStandalonePWA()) {
       setPushIOSWarning(true);
     }
@@ -139,16 +138,13 @@ export default function Profile({ onBack }: { onBack: () => void }) {
     }
   }
 
-  // ════════════════════════════════════════════════════════
-  //  开启/关闭推送订阅
-  // ════════════════════════════════════════════════════════
+  // 开启/关闭推送订阅
   async function handleTogglePush() {
     if (pushBusy) return;
     setPushBusy(true);
 
     try {
       if (pushSubbed) {
-        // 取消订阅
         if (!confirm("确定关闭公告推送通知吗?")) {
           setPushBusy(false);
           return;
@@ -161,7 +157,6 @@ export default function Profile({ onBack }: { onBack: () => void }) {
           alert(`关闭失败:${result.error}`);
         }
       } else {
-        // 订阅
         const result = await subscribeToPush();
         if (result.success) {
           setPushSubbed(true);
@@ -266,11 +261,10 @@ export default function Profile({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      {/* 标签切换 */}
+      {/* 标签切换 — 改为只有 2 个 tab */}
       <View style={{ flexDirection: "row", backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#e5e7eb", marginBottom: 16 }}>
         {[
           { key: "info", label: "联络资料" },
-          { key: "notifications", label: "通知设置" },
           { key: "password", label: "修改密码" },
         ].map((tab) => (
           <TouchableOpacity
@@ -296,7 +290,7 @@ export default function Profile({ onBack }: { onBack: () => void }) {
       </View>
 
       <View style={{ padding: 16 }}>
-        {/* 联络资料 */}
+        {/* 联络资料 — 含手机号 + 通知偏好 */}
         {activeTab === "info" && (
           <View>
             <Text style={{ fontSize: 14, color: "#374151", marginBottom: 6 }}>用户名</Text>
@@ -320,11 +314,16 @@ export default function Profile({ onBack }: { onBack: () => void }) {
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
-            <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 20 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 24 }}>
               请填写本地 10 位手机号,或以「+」开头的国际号码
             </Text>
 
-            {/* 同意接收短信通知 */}
+            {/* ════ 通知偏好区块 ════ */}
+            <Text style={{ fontSize: 15, color: "#374151", marginBottom: 12, fontWeight: "bold" }}>
+              📲 通知偏好
+            </Text>
+
+            {/* 短信通知开关 */}
             <TouchableOpacity
               onPress={() => setSmsOptIn(!smsOptIn)}
               style={{
@@ -335,7 +334,7 @@ export default function Profile({ onBack }: { onBack: () => void }) {
                 borderColor: smsOptIn ? "#2563eb" : "#ccc",
                 borderRadius: 8,
                 padding: 14,
-                marginBottom: 32,
+                marginBottom: 12,
               }}
               activeOpacity={0.7}
             >
@@ -359,88 +358,18 @@ export default function Profile({ onBack }: { onBack: () => void }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "bold", color: "#374151" }}>
-                  我同意接收教会短信通知
+                  📩 接收短信通知
                 </Text>
                 <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 18 }}>
-                  勾选后,教会将在有重要通知(如聚会变动、紧急事项等)时通过短信告知你。
+                  教会有重要事项(如聚会变动、紧急代祷)时,通过短信告知您。
                 </Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={{
-                backgroundColor: saving ? "#93c5fd" : "#2563eb",
-                padding: 14, borderRadius: 8, alignItems: "center",
-              }}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-                {saving ? "保存中..." : "保存"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 通知设置 */}
-        {activeTab === "notifications" && (
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#374151", marginBottom: 12 }}>
-              📣 公告推送通知
-            </Text>
-            <Text style={{ fontSize: 13, color: "#6b7280", marginBottom: 20, lineHeight: 20 }}>
-              开启后,教会发布重要公告时,即使您没有打开 App,也会收到通知提醒。
-            </Text>
-
-            {!pushSupported && (
-              <View style={{
-                backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#fde68a",
-                borderRadius: 8, padding: 12, marginBottom: 16,
-              }}>
-                <Text style={{ fontSize: 13, color: "#92400e", fontWeight: "bold", marginBottom: 4 }}>
-                  ⚠️ 您的浏览器不支持推送
-                </Text>
-                <Text style={{ fontSize: 12, color: "#92400e", lineHeight: 18 }}>
-                  请使用最新版 Chrome、Safari 或 Firefox 浏览器。
-                </Text>
-              </View>
-            )}
-
-            {pushSupported && pushIOSWarning && (
-              <View style={{
-                backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#fde68a",
-                borderRadius: 8, padding: 12, marginBottom: 16,
-              }}>
-                <Text style={{ fontSize: 13, color: "#92400e", fontWeight: "bold", marginBottom: 4 }}>
-                  📱 iPhone / iPad 用户需要先添加到主屏幕
-                </Text>
-                <Text style={{ fontSize: 12, color: "#92400e", lineHeight: 18 }}>
-                  1. 用 Safari 打开 App{"\n"}
-                  2. 点底部分享按钮(方框带向上箭头){"\n"}
-                  3. 选「加入主画面」/「添加到主屏幕」{"\n"}
-                  4. 然后从主屏幕图标打开 App,再回到这里开启推送
-                </Text>
-              </View>
-            )}
-
-            {pushSupported && pushPermission === "denied" && (
-              <View style={{
-                backgroundColor: "#fee2e2", borderWidth: 1, borderColor: "#fecaca",
-                borderRadius: 8, padding: 12, marginBottom: 16,
-              }}>
-                <Text style={{ fontSize: 13, color: "#991b1b", fontWeight: "bold", marginBottom: 4 }}>
-                  ❌ 通知权限已被拒绝
-                </Text>
-                <Text style={{ fontSize: 12, color: "#991b1b", lineHeight: 18 }}>
-                  您之前拒绝了通知权限。请到浏览器设置中找到本网站,把「通知」改为「允许」,然后回来重试。
-                </Text>
-              </View>
-            )}
-
-            {/* 推送开关 */}
+            {/* 推送通知开关 */}
             <TouchableOpacity
               onPress={handleTogglePush}
-              disabled={pushBusy || !pushSupported || pushIOSWarning}
+              disabled={pushBusy || !pushSupported || pushIOSWarning || pushPermission === "denied"}
               style={{
                 flexDirection: "row",
                 alignItems: "flex-start",
@@ -449,8 +378,8 @@ export default function Profile({ onBack }: { onBack: () => void }) {
                 borderColor: pushSubbed ? "#2563eb" : "#ccc",
                 borderRadius: 8,
                 padding: 14,
-                marginBottom: 20,
-                opacity: (pushBusy || !pushSupported || pushIOSWarning) ? 0.5 : 1,
+                marginBottom: 12,
+                opacity: (pushBusy || !pushSupported || pushIOSWarning || pushPermission === "denied") ? 0.6 : 1,
               }}
               activeOpacity={0.7}
             >
@@ -474,23 +403,74 @@ export default function Profile({ onBack }: { onBack: () => void }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "bold", color: "#374151" }}>
-                  {pushBusy ? "处理中..." : pushSubbed ? "已开启推送通知" : "开启推送通知"}
+                  📣 接收公告推送通知 {pushBusy ? "(处理中...)" : ""}
                 </Text>
                 <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 18 }}>
                   {pushSubbed
-                    ? "点击关闭推送(此设备)"
-                    : "点击此处开启,浏览器会询问权限,请选「允许」"}
+                    ? "已开启 — 即使没打开 App 也能收到通知。点击关闭(仅本设备)。"
+                    : "开启后,即使没打开 App,重要公告也会推送到您手机。点击此处开启。"}
                 </Text>
               </View>
             </TouchableOpacity>
 
+            {/* 推送相关提示 */}
+            {!pushSupported && (
+              <View style={{
+                backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#fde68a",
+                borderRadius: 8, padding: 10, marginBottom: 12,
+              }}>
+                <Text style={{ fontSize: 11, color: "#92400e", lineHeight: 16 }}>
+                  ⚠️ 您的浏览器不支持推送通知,请使用最新版 Chrome、Safari 或 Firefox。
+                </Text>
+              </View>
+            )}
+
+            {pushSupported && pushIOSWarning && (
+              <View style={{
+                backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#fde68a",
+                borderRadius: 8, padding: 10, marginBottom: 12,
+              }}>
+                <Text style={{ fontSize: 12, color: "#92400e", fontWeight: "bold", marginBottom: 4 }}>
+                  📱 iPhone 用户需先添加到主屏幕
+                </Text>
+                <Text style={{ fontSize: 11, color: "#92400e", lineHeight: 16 }}>
+                  1. 用 Safari 打开 App  2. 点底部分享按钮  3. 选「加入主画面」  4. 从主屏幕图标打开,再回这里开启推送
+                </Text>
+              </View>
+            )}
+
+            {pushSupported && pushPermission === "denied" && (
+              <View style={{
+                backgroundColor: "#fee2e2", borderWidth: 1, borderColor: "#fecaca",
+                borderRadius: 8, padding: 10, marginBottom: 12,
+              }}>
+                <Text style={{ fontSize: 11, color: "#991b1b", lineHeight: 16 }}>
+                  ❌ 通知权限已被拒绝。请到浏览器设置中找到本网站,把「通知」改为「允许」后回来重试。
+                </Text>
+              </View>
+            )}
+
+            {/* 推送说明 */}
             <View style={{
-              backgroundColor: "#f9fafb", borderRadius: 8, padding: 12,
+              backgroundColor: "#f9fafb", borderRadius: 8, padding: 10, marginBottom: 24,
             }}>
-              <Text style={{ fontSize: 11, color: "#6b7280", lineHeight: 18 }}>
-                💡 推送是按设备开启的,如果您想在多个设备(如手机和电脑)都收到通知,需在每个设备上分别开启。
+              <Text style={{ fontSize: 11, color: "#6b7280", lineHeight: 16 }}>
+                💡 推送是按设备开启的,如需在多个设备(如手机+电脑)都收到,需在每个设备上分别开启。
               </Text>
             </View>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: saving ? "#93c5fd" : "#2563eb",
+                padding: 14, borderRadius: 8, alignItems: "center",
+              }}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
+                {saving ? "保存中..." : "保存"}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
